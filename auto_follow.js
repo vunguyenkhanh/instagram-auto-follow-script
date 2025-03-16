@@ -1,12 +1,32 @@
+/**
+ * Instagram Auto Follow Bot
+ * 
+ * Automates following users on Instagram in a controlled manner.
+ * Features:
+ * - Customizable follow delay
+ * - UI controls for start, stop, and reset
+ * - Prevents exceeding daily follow limits
+ * 
+ * Author: Vu Nguyen Khanh
+ * Facebook: https://www.facebook.com/VuNguyenKhanh.Profile/
+ * GitHub: https://github.com/vunguyenkhanh
+ */
+
 (async function () {
+    // Utility function to introduce delays
     const delay = (ms) => new Promise(res => setTimeout(res, ms));
+    
+    // Script state variables
     let running = false;
     let count = parseInt(localStorage.getItem("follow_count")) || 0;
     let attempts = 0;
-    let minDelay = 5000;
-    let maxDelay = 15000;
-    const MAX_FOLLOWS_PER_DAY = 100;
+    let minDelay = 5000; // Minimum delay between follows (in milliseconds)
+    let maxDelay = 15000; // Maximum delay between follows (in milliseconds)
+    const MAX_FOLLOWS_PER_DAY = 100; // Safety limit to prevent bans
     
+    /**
+     * Creates the floating UI panel for controlling the bot
+     */
     function createUI() {
         let oldUI = document.getElementById("autoFollowUI");
         if (oldUI) oldUI.remove();
@@ -27,6 +47,7 @@
         `;
         document.body.appendChild(ui);
 
+        // Button event listeners
         document.getElementById("startFollow").onclick = () => {
             if (!running) {
                 running = true;
@@ -50,6 +71,9 @@
         };
     }
 
+    /**
+     * Main loop for finding and following accounts
+     */
     async function followProcess() {
         console.log("🚀 Instagram Auto Follow Started!");
 
@@ -99,6 +123,9 @@
         console.log(`🎉 Done! Followed a total of ${count} accounts.`);
     }
 
+    /**
+     * Simulates mouse movement to make the automation more human-like
+     */
     function moveMouseToElement(el) {
         let rect = el.getBoundingClientRect();
         let x = rect.left + Math.random() * rect.width;
@@ -107,5 +134,6 @@
         el.dispatchEvent(evt);
     }
 
+    // Initialize the UI on script execution
     createUI();
 })();

@@ -25,10 +25,11 @@ No installation required! Just copy & paste the script into your browser’s Dev
 1. Open **Instagram** in your browser.
 2. Navigate to the suggested follow list or directly visit:  
    `https://www.instagram.com/[username]/following/`
-3. Open **DevTools (F12)** → Switch to the **Console** tab.
-4. Copy and paste the script, then press **Enter**.
-5. A floating control panel will appear in the top-right corner of the screen.
-6. Click **Start** to begin following, **Stop** to pause, or **Reset** to reset the follow count.
+3. **Important:** Manually scroll to the bottom of the following list to ensure all accounts are loaded.
+4. Open **DevTools (F12)** → Switch to the **Console** tab.
+5. Copy and paste the script, then press **Enter**.
+6. A floating control panel will appear in the top-right corner of the screen.
+7. Click **Start** to begin following, **Stop** to pause, or **Reset** to reset the follow count.
 
 ---
 

@@ -23,7 +23,8 @@ No installation required! Just copy & paste the script into your browser’s Dev
 
 ### 🛠 How to Use
 1. Open **Instagram** in your browser.
-2. Navigate to the suggested follow list.
+2. Navigate to the suggested follow list or directly visit:  
+   `https://www.instagram.com/[username]/following/`
 3. Open **DevTools (F12)** → Switch to the **Console** tab.
 4. Copy and paste the script, then press **Enter**.
 5. A floating control panel will appear in the top-right corner of the screen.
@@ -59,9 +60,10 @@ We welcome contributions! If you have suggestions or improvements, feel free to 
 ## 📌 Author & Contact
 
 **© 2025 Vu Nguyen Khanh**  
-📌 **Facebook**: [Link](https://www.facebook.com/VuNguyenKhanh.Profile/)  
-📌 **GitHub**: [Link](https://github.com/vunguyenkhanh)  
+📌 **Facebook**: [Vu Nguyen Khanh](https://www.facebook.com/VuNguyenKhanh.Profile/)  
+📌 **GitHub**: [vunguyenkhanh](https://github.com/vunguyenkhanh)  
 
 ---
 
 🚀 **Enhance your Instagram growth, but always stay within safe limits!**
+

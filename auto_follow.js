@@ -28,7 +28,6 @@
   let maxFollows = parseInt(localStorage.getItem('max_follows')) || 50; // Reduced to 50 default
   let maxDailyFollows = parseInt(localStorage.getItem('max_daily_follows')) || 100; // Daily limit
   let randomPause = localStorage.getItem('random_pause') === 'true';
-  let skippedCount = 0; // Track skipped accounts
 
   // Function to find the scrollable container in the Following dialog
   const findScrollContainer = () => {
@@ -109,7 +108,6 @@
                 <p style="margin: 0; font-size: 18px; font-weight: bold;">🚀 Instagram Auto Follow</p>
                 <p style="margin-top: 5px;"><span style="color: #0f0; font-size: 16px;">✔ Followed:</span> <span id="followCount" style="font-weight: bold; color: #0f0;">${count}</span></p>
                 <p style="margin-top: 5px;"><span style="color: #ffc107; font-size: 16px;">📅 Today:</span> <span id="dailyCount" style="font-weight: bold; color: #ffc107;">${dailyCount}/${maxDailyFollows}</span></p>
-                <p style="margin-top: 5px;"><span style="color: #ff69b4; font-size: 16px;">⏭️ Skipped:</span> <span id="skippedCount" style="font-weight: bold; color: #ff69b4;">${skippedCount}</span></p>
                 <p id="status" style="color: #ffc107; font-size: 14px;">🔄 Status: Idle</p>
                 <div style="text-align: left; margin-top: 10px;">
                     <label style="display: block; margin-bottom: 5px;">⏳ Min Delay: <span id="minDelayValue">${minDelay}</span> seconds</label>
@@ -147,9 +145,7 @@
     document.getElementById('startFollow').onclick = () => {
       if (!running) {
         running = true;
-        skippedCount = 0; // Reset skipped count on new session
         document.getElementById('status').innerText = '🏃‍♂️ Running...';
-        document.getElementById('skippedCount').innerText = skippedCount;
         followProcess();
       }
     };
@@ -162,12 +158,10 @@
     document.getElementById('resetFollow').onclick = () => {
       count = 0;
       dailyCount = 0;
-      skippedCount = 0;
       localStorage.setItem('follow_count', 0);
       localStorage.setItem('daily_follow_count', 0);
       document.getElementById('followCount').innerText = count;
       document.getElementById('dailyCount').innerText = `${dailyCount}/${maxDailyFollows}`;
-      document.getElementById('skippedCount').innerText = skippedCount;
       document.getElementById('status').innerText = '🔄 Reset complete!';
     };
 
@@ -239,15 +233,16 @@
       }
 
       // Auto-scroll to load more accounts
-      const scrollAttempts = 3;
-      for (let i = 0; i < scrollAttempts && running; i++) {
+      let reachedEnd = false;
+      while (running && !reachedEnd) {
         const scrollContainer = findScrollContainer();
 
         if (scrollContainer) {
           console.log('Found Following list container:', scrollContainer);
 
-          const lastHeight = scrollContainer.scrollHeight;
           const viewportHeight = scrollContainer.clientHeight;
+          let lastContentHeight = scrollContainer.scrollHeight;
+          let unchangedHeightCount = 0;
 
           // Function to perform scroll
           const performScroll = async () => {
@@ -265,13 +260,13 @@
               await delay(1000);
 
               // Simulate mouse wheel for natural scrolling
-              for (let i = 0; i < 3; i++) {
+              for (let i = 0; i < 5; i++) {
                 const wheelEvent = new WheelEvent('wheel', {
-                  deltaY: 100,
+                  deltaY: 200,
                   bubbles: true,
                 });
                 lastButton.dispatchEvent(wheelEvent);
-                await delay(500);
+                await delay(300);
               }
 
               // Force scroll event on container and its parents
@@ -282,10 +277,6 @@
                 });
                 element = element.parentElement;
               }
-            } else {
-              // If no buttons found, try direct scroll
-              const scrollAmount = Math.floor(viewportHeight * 0.8); // Scroll 80% of viewport
-              scrollContainer.scrollTop += scrollAmount;
             }
 
             // Wait for content to load
@@ -309,59 +300,125 @@
             await delay(1500);
           };
 
-          // Perform multiple scrolls with increased attempts and better checking
-          for (let j = 0; j < 5 && running; j++) {
-            document.getElementById('status').innerText = `📜 Scrolling (${j + 1}/5)...`;
+          // Scroll and follow process
+          document.getElementById('status').innerText = '📜 Scrolling and checking for accounts...';
 
+          // Get initial buttons
+          let buttons = Array.from(scrollContainer.querySelectorAll('button'));
+          let followButtons = buttons.filter((btn) => {
+            const btnText = btn.innerText.trim().toLowerCase();
+            return btnText === 'follow' && !btn.disabled;
+          });
+
+          // If no follow buttons in view, try scrolling for more
+          if (followButtons.length === 0) {
             const beforeScrollHeight = scrollContainer.scrollHeight;
             const beforeButtonCount = scrollContainer.querySelectorAll('button').length;
 
             await performScroll();
-
-            // Wait a bit more and check if content was loaded
-            await delay(2000);
+            await delay(2000); // Wait for content to load
 
             const afterScrollHeight = scrollContainer.scrollHeight;
             const afterButtonCount = scrollContainer.querySelectorAll('button').length;
 
-            // Check if either height increased or we got more buttons
+            // Check if we got new content
             if (afterScrollHeight > beforeScrollHeight || afterButtonCount > beforeButtonCount) {
               console.log('New content loaded:', {
                 heightDiff: afterScrollHeight - beforeScrollHeight,
                 buttonDiff: afterButtonCount - beforeButtonCount,
               });
-              break;
-            }
-
-            // If we're at the bottom, wait longer for content
-            if (scrollContainer.scrollTop + viewportHeight >= scrollContainer.scrollHeight) {
-              console.log('At bottom, waiting for content...');
+              unchangedHeightCount = 0;
+              lastContentHeight = afterScrollHeight;
+            } else if (scrollContainer.scrollTop + viewportHeight >= scrollContainer.scrollHeight) {
+              // Check if we've reached the end
+              console.log('At bottom, checking if truly at end...');
               await delay(3000);
 
-              // Final check for new content
-              if (
-                scrollContainer.scrollHeight > afterScrollHeight ||
-                scrollContainer.querySelectorAll('button').length > afterButtonCount
-              ) {
-                console.log('Content loaded after wait');
-                break;
+              if (afterScrollHeight === lastContentHeight) {
+                unchangedHeightCount++;
+                if (unchangedHeightCount >= 3) {
+                  console.log('Reached true end of list - no new content after multiple checks');
+                  reachedEnd = true;
+                }
+              } else {
+                unchangedHeightCount = 0;
+                lastContentHeight = afterScrollHeight;
               }
             }
+
+            // Get updated buttons after scroll
+            buttons = Array.from(scrollContainer.querySelectorAll('button'));
+            followButtons = buttons.filter((btn) => {
+              const btnText = btn.innerText.trim().toLowerCase();
+              return btnText === 'follow' && !btn.disabled;
+            });
           }
 
-          // Check if new content was loaded
-          const newHeight = scrollContainer.scrollHeight;
-          console.log('Height change:', { old: lastHeight, new: newHeight });
+          // Follow available accounts
+          if (followButtons.length > 0) {
+            document.getElementById('status').innerText = '👥 Following accounts...';
 
-          if (newHeight === lastHeight) {
-            // Try one final scroll to bottom
-            scrollContainer.scrollTop = scrollContainer.scrollHeight;
-            await delay(2000);
+            for (let btn of followButtons) {
+              if (!running) break;
 
-            if (scrollContainer.scrollHeight === lastHeight) {
-              console.log('No new content loaded after scroll attempt');
-              break;
+              // Double-check button state
+              if (btn.innerText.trim().toLowerCase() !== 'follow') {
+                console.log('⏭️ Skipped - button state changed');
+                continue;
+              }
+
+              // Scroll button into view
+              btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              await delay(1000);
+
+              // Create random delay between min and max
+              const waitTime = minDelay + Math.random() * (maxDelay - minDelay);
+              document.getElementById('status').innerText = `⏳ Waiting ${waitTime.toFixed(1)}s...`;
+              await delay(waitTime * 1000);
+
+              if (!running) break;
+
+              // Final check before clicking
+              if (btn.innerText.trim().toLowerCase() !== 'follow') {
+                console.log('⏭️ Skipped - button state changed during delay');
+                continue;
+              }
+
+              // Click the Follow button
+              btn.click();
+              count++;
+              dailyCount++;
+              consecutiveFollows++;
+
+              // Update localStorage and UI
+              localStorage.setItem('follow_count', count);
+              localStorage.setItem('daily_follow_count', dailyCount);
+              document.getElementById('followCount').innerText = count;
+              document.getElementById('dailyCount').innerText = `${dailyCount}/${maxDailyFollows}`;
+              document.getElementById('status').innerText = `✅ Followed account #${count}`;
+              console.log(`✅ Followed account #${count}`);
+
+              // Check limits
+              if (dailyCount >= maxDailyFollows) {
+                console.log('🚫 Reached daily follow limit. Stopping.');
+                document.getElementById('status').innerText = '✅ Daily limit reached!';
+                running = false;
+                break;
+              }
+
+              // Random pause after consecutive follows
+              if (randomPause && consecutiveFollows >= 5 + Math.floor(Math.random() * 5)) {
+                const pauseTime = 60 + Math.floor(Math.random() * 180);
+                console.log(`🛌 Random pause for ${pauseTime} seconds...`);
+                document.getElementById(
+                  'status'
+                ).innerText = `🛌 Pausing for ${pauseTime}s to avoid detection...`;
+                await delay(pauseTime * 1000);
+                consecutiveFollows = 0;
+              }
             }
+          } else if (!reachedEnd) {
+            console.log('No new accounts to follow in current view, continuing to scroll...');
           }
         } else {
           console.log(
@@ -369,110 +426,14 @@
           );
           document.getElementById('status').innerText = '⚠️ Please open Following dialog!';
           await delay(5000);
-          continue;
         }
       }
 
-      // Get all buttons from the Following dialog
-      const scrollContainer = findScrollContainer();
-      const buttons = scrollContainer ? Array.from(scrollContainer.querySelectorAll('button')) : [];
-
-      // Filter for only genuine follow buttons (not already followed)
-      const followButtons = buttons.filter((btn) => {
-        const btnText = btn.innerText.trim().toLowerCase();
-        return btnText === 'follow' && !btn.disabled;
-      });
-
-      // Count accounts already followed (buttons that say "following" or "requested")
-      const alreadyFollowedButtons = buttons.filter((btn) => {
-        const btnText = btn.innerText.trim().toLowerCase();
-        return (btnText === 'following' || btnText === 'requested') && !btn.disabled;
-      });
-
-      // Update skipped count
-      if (alreadyFollowedButtons.length > 0) {
-        skippedCount += alreadyFollowedButtons.length;
-        document.getElementById('skippedCount').innerText = skippedCount;
-        console.log(`⏭️ Skipped ${alreadyFollowedButtons.length} already followed accounts.`);
-      }
-
-      // If no Follow buttons found after multiple attempts, end the process
-      if (followButtons.length === 0) {
-        noNewAccountsCount++;
-        if (noNewAccountsCount >= 3) {
-          console.log('🚫 No new accounts to follow after multiple attempts. Stopping.');
-          document.getElementById('status').innerText = '✅ Complete! No more accounts to follow.';
-          running = false;
-          break;
-        }
-        continue; // Try scrolling again
-      }
-      noNewAccountsCount = 0; // Reset counter when we find accounts to follow
-
-      // Scroll the first follow button into view
-      if (followButtons[0]) {
-        followButtons[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await delay(1000); // Wait for scroll to complete
-      }
-
-      // Follow each account with a genuine Follow button
-      for (let btn of followButtons) {
-        if (!running) break;
-
-        // Double-check the button is still a follow button (not already followed)
-        if (btn.innerText.trim().toLowerCase() !== 'follow') {
-          skippedCount++;
-          document.getElementById('skippedCount').innerText = skippedCount;
-          console.log('⏭️ Skipped - button state changed');
-          continue;
-        }
-
-        // Create random delay between min and max
-        const waitTime = minDelay + Math.random() * (maxDelay - minDelay);
-        document.getElementById('status').innerText = `⏳ Waiting ${waitTime.toFixed(1)}s...`;
-        await delay(waitTime * 1000);
-
-        if (!running) break;
-
-        // Final check before clicking
-        if (btn.innerText.trim().toLowerCase() !== 'follow') {
-          skippedCount++;
-          document.getElementById('skippedCount').innerText = skippedCount;
-          console.log('⏭️ Skipped - button state changed during delay');
-          continue;
-        }
-
-        // Click the Follow button
-        btn.click();
-        count++;
-        dailyCount++;
-        followCounter++;
-        consecutiveFollows++;
-
-        // Update localStorage and UI
-        localStorage.setItem('follow_count', count);
-        localStorage.setItem('daily_follow_count', dailyCount);
-        document.getElementById('followCount').innerText = count;
-        document.getElementById('dailyCount').innerText = `${dailyCount}/${maxDailyFollows}`;
-        document.getElementById('status').innerText = `✅ Followed account #${count}`;
-        console.log(`✅ Followed account #${count}`);
-
-        // Random pause after consecutive follows (anti-ban feature)
-        if (randomPause && consecutiveFollows >= 5 + Math.floor(Math.random() * 5)) {
-          const pauseTime = 60 + Math.floor(Math.random() * 180); // 1-4 minutes
-          console.log(`🛌 Random pause for ${pauseTime} seconds...`);
-          document.getElementById(
-            'status'
-          ).innerText = `🛌 Pausing for ${pauseTime}s to avoid detection...`;
-          await delay(pauseTime * 1000);
-          consecutiveFollows = 0;
-        }
-      }
+      console.log(`🎉 Done! Followed a total of ${count} accounts (${dailyCount} today).`);
+      document.getElementById('status').innerText =
+        '✅ Complete! Processed all available accounts.';
+      running = false;
     }
-
-    console.log(
-      `🎉 Done! Followed a total of ${count} accounts (${dailyCount} today). Skipped ${skippedCount} accounts.`
-    );
   }
 
   createUI();

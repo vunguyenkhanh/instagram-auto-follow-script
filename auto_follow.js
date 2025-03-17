@@ -293,6 +293,28 @@
     };
   }
 
+  // Add countdown timer function
+  function startCountdown(seconds, onTick, onComplete) {
+    let remainingTime = seconds;
+    const intervalId = setInterval(() => {
+      remainingTime--;
+      if (remainingTime <= 0) {
+        clearInterval(intervalId);
+        onComplete();
+      } else {
+        onTick(remainingTime);
+      }
+    }, 1000);
+    return intervalId;
+  }
+
+  // Format time function
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
   async function followProcess() {
     addLog('Starting follow process...', 'info');
 
@@ -450,8 +472,23 @@
 
               // Create random delay between min and max
               const waitTime = minDelay + Math.random() * (maxDelay - minDelay);
+              const waitTimeSeconds = Math.round(waitTime);
               document.getElementById('status').innerText = `⏳ Waiting ${waitTime.toFixed(1)}s...`;
-              await delay(waitTime * 1000);
+
+              // Start countdown
+              await new Promise((resolve) => {
+                startCountdown(
+                  waitTimeSeconds,
+                  (remaining) => {
+                    document.getElementById('status').innerText = `⏳ Waiting ${formatTime(
+                      remaining
+                    )}...`;
+                  },
+                  () => {
+                    resolve();
+                  }
+                );
+              });
 
               if (!running) break;
 
@@ -478,10 +515,22 @@
                 const pauseTime = 60 + Math.floor(Math.random() * 180);
                 addLog(`Taking a ${pauseTime} second break to avoid detection`, 'warning');
                 console.log(`🛌 Random pause for ${pauseTime} seconds...`);
-                document.getElementById(
-                  'status'
-                ).innerText = `🛌 Pausing for ${pauseTime}s to avoid detection...`;
-                await delay(pauseTime * 1000);
+
+                // Start countdown for random pause
+                await new Promise((resolve) => {
+                  startCountdown(
+                    pauseTime,
+                    (remaining) => {
+                      document.getElementById('status').innerText = `🛌 Pausing for ${formatTime(
+                        remaining
+                      )} to avoid detection...`;
+                    },
+                    () => {
+                      resolve();
+                    }
+                  );
+                });
+
                 consecutiveFollows = 0;
               }
 

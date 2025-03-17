@@ -602,7 +602,7 @@
               // Random pause after consecutive follows with error handling
               if (randomPause && consecutiveFollows >= 5 + Math.floor(Math.random() * 5)) {
                 try {
-                  const pauseTime = 60 + Math.floor(Math.random() * 180);
+                  const pauseTime = 30 + Math.floor(Math.random() * 31); // Random between 30-60 seconds
                   addLog(`Taking a ${pauseTime} second break to avoid detection`, 'warning');
 
                   await new Promise((resolve) => {

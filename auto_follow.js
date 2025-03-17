@@ -21,21 +21,22 @@
 
   let running = false;
   let count = parseInt(localStorage.getItem('follow_count')) || 0;
-  let minDelay = parseInt(localStorage.getItem('min_delay')) || 10; // Increased default delay to 10s
-  let maxDelay = parseInt(localStorage.getItem('max_delay')) || 25; // Added adjustable max delay
-  let maxFollows = parseInt(localStorage.getItem('max_follows')) || 50; // Reduced to 50 default
+  let minDelay = parseInt(localStorage.getItem('min_delay')) || 10;
+  let maxDelay = parseInt(localStorage.getItem('max_delay')) || 25;
+  let maxFollows = parseInt(localStorage.getItem('max_follows')) || 50;
   let randomPause = localStorage.getItem('random_pause') === 'true';
   let logHistory = JSON.parse(localStorage.getItem('log_history')) || [];
+  let currentCountdownInterval = null; // Track current countdown interval
 
   // Add log entry with timestamp
   function addLog(message, type = 'info') {
     const log = {
       timestamp: new Date().toLocaleTimeString(),
       message,
-      type, // 'info', 'success', 'warning', 'error'
+      type,
     };
     logHistory.unshift(log);
-    if (logHistory.length > 100) logHistory.pop(); // Keep last 100 logs
+    if (logHistory.length > 100) logHistory.pop();
     localStorage.setItem('log_history', JSON.stringify(logHistory));
     updateLogUI();
     console.log(`[${log.type.toUpperCase()}] ${message}`);
@@ -124,6 +125,85 @@
     return null;
   };
 
+  // Update progress UI
+  function updateProgress() {
+    const percent = Math.min((count / maxFollows) * 100, 100);
+    const progressPath = document.getElementById('progressPath');
+    const progressPercent = document.getElementById('progressPercent');
+    const maxFollowsDisplay = document.getElementById('maxFollowsDisplay');
+
+    if (progressPath && progressPercent && maxFollowsDisplay) {
+      progressPath.style.strokeDasharray = `${percent}, 100`;
+      progressPercent.textContent = `${Math.round(percent)}%`;
+      maxFollowsDisplay.textContent = maxFollows;
+    }
+  }
+
+  // Update status with icon and sub-status
+  function updateStatus(mainStatus, subStatus = '', icon = '🔄') {
+    const statusElement = document.getElementById('status');
+    const subStatusElement = document.getElementById('subStatus');
+    const statusIconElement = document.getElementById('statusIcon');
+
+    if (statusElement && subStatusElement && statusIconElement) {
+      statusElement.textContent = mainStatus;
+      subStatusElement.textContent = subStatus || 'Ready to start';
+      statusIconElement.textContent = icon;
+    }
+  }
+
+  // Clear existing countdown
+  function clearExistingCountdown() {
+    if (currentCountdownInterval) {
+      clearInterval(currentCountdownInterval);
+      currentCountdownInterval = null;
+    }
+  }
+
+  // Add countdown timer function with cleanup
+  function startCountdown(seconds, onTick, onComplete) {
+    clearExistingCountdown();
+
+    let remainingTime = seconds;
+    currentCountdownInterval = setInterval(() => {
+      remainingTime--;
+      if (remainingTime <= 0) {
+        clearExistingCountdown();
+        onComplete();
+      } else {
+        onTick(remainingTime);
+      }
+    }, 1000);
+    return currentCountdownInterval;
+  }
+
+  // Format time function with hours
+  function formatTime(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  // Reset all counters and state
+  function resetAll() {
+    clearExistingCountdown();
+    running = false;
+    count = 0;
+    consecutiveFollows = 0;
+    localStorage.setItem('follow_count', 0);
+    logHistory = [];
+    localStorage.setItem('log_history', JSON.stringify(logHistory));
+    document.getElementById('followCount').innerText = '0';
+    updateStatus('Reset complete!', '', '🔄');
+    addLog('All counters and logs reset', 'info');
+    updateLogUI();
+    updateProgress();
+  }
+
   function createUI() {
     let oldUI = document.getElementById('autoFollowUI');
     if (oldUI) oldUI.remove();
@@ -141,12 +221,46 @@
                 </div>
 
                 <div id="mainContent">
-                    <div style="background: rgba(40, 167, 69, 0.1); padding: 10px; border-radius: 8px; margin-bottom: 15px;">
-                        <p style="margin: 0; font-size: 16px;">
-                            <span style="color: #28a745;">✓ Followed:</span>
-                            <span id="followCount" style="font-weight: 600; color: #28a745;">${count}</span>
-                        </p>
-                        <p id="status" style="margin: 5px 0 0 0; color: #ffc107; font-size: 14px;">🔄 Status: Idle</p>
+                    <div style="background: rgba(40, 40, 40, 0.95); padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <div style="text-align: left;">
+                                <div style="font-size: 24px; font-weight: 600; color: #28a745; margin-bottom: 4px;">
+                                    <span id="followCount">${count}</span>
+                                    <span style="font-size: 14px; color: #6c757d;"> / </span>
+                                    <span style="font-size: 14px; color: #6c757d;" id="maxFollowsDisplay">${maxFollows}</span>
+                                </div>
+                                <div style="font-size: 12px; color: #adb5bd;">Accounts Followed</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div id="progressCircle" style="width: 50px; height: 50px; position: relative;">
+                                    <svg viewBox="0 0 36 36" style="transform: rotate(-90deg)">
+                                        <path d="M18 2.0845
+                                            a 15.9155 15.9155 0 0 1 0 31.831
+                                            a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            fill="none"
+                                            stroke="#444"
+                                            stroke-width="2"
+                                            stroke-dasharray="100, 100"/>
+                                        <path id="progressPath"
+                                            d="M18 2.0845
+                                            a 15.9155 15.9155 0 0 1 0 31.831
+                                            a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            fill="none"
+                                            stroke="#28a745"
+                                            stroke-width="2"
+                                            stroke-dasharray="0, 100"/>
+                                    </svg>
+                                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; color: #adb5bd;" id="progressPercent">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; background: rgba(30, 30, 30, 0.5); padding: 8px 12px; border-radius: 8px;">
+                            <div id="statusIcon" style="margin-right: 8px; font-size: 16px;">🔄</div>
+                            <div style="flex-grow: 1;">
+                                <div id="status" style="color: #ffc107; font-size: 14px; font-weight: 500;">Status: Idle</div>
+                                <div id="subStatus" style="color: #6c757d; font-size: 12px; margin-top: 2px;">Ready to start</div>
+                            </div>
+                        </div>
                     </div>
 
                     <div style="text-align: left; margin-bottom: 15px;">
@@ -159,7 +273,7 @@
                             style="width: 100%; height: 6px; -webkit-appearance: none; background: #495057; border-radius: 3px; outline: none;">
 
                         <label style="display: block; margin: 15px 0 8px 0; color: #adb5bd;">🎯 Follows per session: <span id="maxFollowsValue" style="color: white; font-weight: 500;">${maxFollows}</span></label>
-                        <input type="range" id="maxFollows" min="10" max="200" step="5" value="${maxFollows}"
+                        <input type="range" id="maxFollows" min="10" max="500" step="5" value="${maxFollows}"
                             style="width: 100%; height: 6px; -webkit-appearance: none; background: #495057; border-radius: 3px; outline: none;">
 
                         <label style="display: flex; align-items: center; margin: 15px 0; color: #adb5bd;">
@@ -223,29 +337,22 @@
 
     document.getElementById('startFollow').onclick = () => {
       if (!running) {
+        resetAll();
         running = true;
         addLog('Bot started', 'success');
-        document.getElementById('status').innerText = '🏃‍♂️ Running...';
+        updateStatus('Running...', 'Initializing process', '🏃‍♂️');
         followProcess();
       }
     };
 
     document.getElementById('stopFollow').onclick = () => {
       running = false;
+      clearExistingCountdown();
       addLog('Bot stopped by user', 'warning');
-      document.getElementById('status').innerText = '🛑 Stopped!';
+      updateStatus('Stopped!', 'Manually stopped by user', '🛑');
     };
 
-    document.getElementById('resetFollow').onclick = () => {
-      count = 0;
-      localStorage.setItem('follow_count', 0);
-      logHistory = [];
-      localStorage.setItem('log_history', JSON.stringify(logHistory));
-      document.getElementById('followCount').innerText = count;
-      document.getElementById('status').innerText = '🔄 Reset complete!';
-      addLog('Counter and logs reset', 'info');
-      updateLogUI();
-    };
+    document.getElementById('resetFollow').onclick = resetAll;
 
     // Add minimize/close functionality
     document.getElementById('minimizeUI').onclick = () => {
@@ -285,59 +392,43 @@
       maxFollows = parseInt(e.target.value);
       localStorage.setItem('max_follows', maxFollows);
       document.getElementById('maxFollowsValue').innerText = maxFollows;
+      updateProgress();
     };
 
     document.getElementById('randomPauseCheck').onchange = (e) => {
       randomPause = e.target.checked;
       localStorage.setItem('random_pause', randomPause);
     };
-  }
 
-  // Add countdown timer function
-  function startCountdown(seconds, onTick, onComplete) {
-    let remainingTime = seconds;
-    const intervalId = setInterval(() => {
-      remainingTime--;
-      if (remainingTime <= 0) {
-        clearInterval(intervalId);
-        onComplete();
-      } else {
-        onTick(remainingTime);
-      }
-    }, 1000);
-    return intervalId;
-  }
-
-  // Format time function
-  function formatTime(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    // Initialize progress
+    updateProgress();
   }
 
   async function followProcess() {
-    addLog('Starting follow process...', 'info');
+    try {
+      addLog('Starting follow process...', 'info');
+      let consecutiveFollows = 0;
+      let noNewAccountsCount = 0;
 
-    let followCounter = 0;
-    let consecutiveFollows = 0;
-    let noNewAccountsCount = 0;
+      while (running) {
+        if (count >= maxFollows) {
+          addLog(`Reached session limit of ${maxFollows} follows`, 'warning');
+          updateStatus('Session Complete!', `Reached limit of ${maxFollows} follows`, '✅');
+          running = false;
+          break;
+        }
 
-    while (running) {
-      // Check session follow limit
-      if (followCounter >= maxFollows) {
-        addLog(`Reached session limit of ${maxFollows} follows`, 'warning');
-        document.getElementById('status').innerText = '✅ Session complete!';
-        running = false;
-        break;
-      }
+        // Auto-scroll to load more accounts
+        let reachedEnd = false;
+        while (running && !reachedEnd) {
+          const scrollContainer = findScrollContainer();
 
-      // Auto-scroll to load more accounts
-      let reachedEnd = false;
-      while (running && !reachedEnd) {
-        const scrollContainer = findScrollContainer();
-
-        if (scrollContainer) {
-          console.log('Found Following list container:', scrollContainer);
+          if (!scrollContainer) {
+            addLog('Following dialog not found. Please open it first.', 'warning');
+            updateStatus('Please open Following dialog!', '', '⚠️');
+            await delay(5000);
+            continue;
+          }
 
           const viewportHeight = scrollContainer.clientHeight;
           let lastContentHeight = scrollContainer.scrollHeight;
@@ -400,7 +491,7 @@
           };
 
           // Scroll and follow process
-          document.getElementById('status').innerText = '📜 Scrolling and checking for accounts...';
+          updateStatus('Scrolling and checking for accounts...', '', '📜');
 
           // Get initial buttons
           let buttons = Array.from(scrollContainer.querySelectorAll('button'));
@@ -455,7 +546,7 @@
 
           // Follow available accounts
           if (followButtons.length > 0) {
-            document.getElementById('status').innerText = '👥 Following accounts...';
+            updateStatus('Following accounts...', '', '👥');
 
             for (let btn of followButtons) {
               if (!running) break;
@@ -473,16 +564,14 @@
               // Create random delay between min and max
               const waitTime = minDelay + Math.random() * (maxDelay - minDelay);
               const waitTimeSeconds = Math.round(waitTime);
-              document.getElementById('status').innerText = `⏳ Waiting ${waitTime.toFixed(1)}s...`;
+              updateStatus(`Waiting ${waitTime.toFixed(1)}s...`, '', '');
 
               // Start countdown
               await new Promise((resolve) => {
                 startCountdown(
                   waitTimeSeconds,
                   (remaining) => {
-                    document.getElementById('status').innerText = `⏳ Waiting ${formatTime(
-                      remaining
-                    )}...`;
+                    updateStatus(`Waiting ${formatTime(remaining)}...`, '', '');
                   },
                   () => {
                     resolve();
@@ -501,37 +590,42 @@
               // Click the Follow button
               btn.click();
               count++;
-              followCounter++;
               consecutiveFollows++;
 
               // Update localStorage and UI
               localStorage.setItem('follow_count', count);
               document.getElementById('followCount').innerText = count;
-              document.getElementById('status').innerText = `✅ Followed account #${count}`;
+              updateProgress();
+              updateStatus('Following...', `Successfully followed account #${count}`, '✅');
               console.log(`✅ Followed account #${count}`);
 
-              // Random pause after consecutive follows
+              // Random pause after consecutive follows with error handling
               if (randomPause && consecutiveFollows >= 5 + Math.floor(Math.random() * 5)) {
-                const pauseTime = 60 + Math.floor(Math.random() * 180);
-                addLog(`Taking a ${pauseTime} second break to avoid detection`, 'warning');
-                console.log(`🛌 Random pause for ${pauseTime} seconds...`);
+                try {
+                  const pauseTime = 60 + Math.floor(Math.random() * 180);
+                  addLog(`Taking a ${pauseTime} second break to avoid detection`, 'warning');
 
-                // Start countdown for random pause
-                await new Promise((resolve) => {
-                  startCountdown(
-                    pauseTime,
-                    (remaining) => {
-                      document.getElementById('status').innerText = `🛌 Pausing for ${formatTime(
-                        remaining
-                      )} to avoid detection...`;
-                    },
-                    () => {
-                      resolve();
-                    }
-                  );
-                });
+                  await new Promise((resolve) => {
+                    startCountdown(
+                      pauseTime,
+                      (remaining) => {
+                        if (running) {
+                          updateStatus(
+                            'Taking a Break',
+                            `Pausing for ${formatTime(remaining)} to avoid detection`,
+                            '🛌'
+                          );
+                        }
+                      },
+                      resolve
+                    );
+                  });
 
-                consecutiveFollows = 0;
+                  consecutiveFollows = 0;
+                } catch (error) {
+                  console.error('Error during random pause:', error);
+                  addLog('Error during random pause', 'error');
+                }
               }
 
               // Update logging in the follow process
@@ -541,22 +635,25 @@
           } else if (!reachedEnd) {
             console.log('No new accounts to follow in current view, continuing to scroll...');
           }
-        } else {
-          console.log(
-            'Could not find Following list container. Please open Following dialog and wait for it to load.'
-          );
-          document.getElementById('status').innerText = '⚠️ Please open Following dialog!';
-          await delay(5000);
         }
+
+        console.log(`🎉 Done! Followed a total of ${count} accounts.`);
+        updateStatus('Complete! Processed all available accounts.', '', '✅');
+        running = false;
       }
 
-      console.log(`🎉 Done! Followed a total of ${count} accounts.`);
-      document.getElementById('status').innerText =
-        '✅ Complete! Processed all available accounts.';
+      addLog(`Follow session completed. Total follows: ${count}`, 'success');
+    } catch (error) {
+      console.error('Error in follow process:', error);
+      addLog(`Error: ${error.message}`, 'error');
       running = false;
+      updateStatus('Error occurred!', '', '❌');
+    } finally {
+      if (running) {
+        running = false;
+        addLog(`Follow session completed. Total follows: ${count}`, 'success');
+      }
     }
-
-    addLog(`Follow session completed. Total follows: ${count}`, 'success');
   }
 
   createUI();

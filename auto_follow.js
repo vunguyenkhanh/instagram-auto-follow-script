@@ -211,129 +211,232 @@
     let ui = document.createElement('div');
     ui.id = 'autoFollowUI';
     ui.innerHTML = `
-            <div style="position: fixed; top: 10px; right: 10px; background: rgba(30, 30, 30, 0.95); padding: 20px; border-radius: 16px; box-shadow: 0px 8px 32px rgba(0, 0, 0, 0.4); color: white; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; text-align: center; z-index: 9999; width: 320px; backdrop-filter: blur(10px);">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                    <h2 style="margin: 0; font-size: 20px; font-weight: 600;">🚀 Instagram Auto Follow</h2>
-                    <div style="display: flex; gap: 10px;">
-                        <button id="minimizeUI" style="background: none; border: none; color: white; cursor: pointer; padding: 5px;">➖</button>
-                        <button id="closeUI" style="background: none; border: none; color: white; cursor: pointer; padding: 5px;">✖️</button>
+        <style>
+            @keyframes slideIn {
+                from { transform: translateX(100%); }
+                to { transform: translateX(0); }
+            }
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+                100% { transform: scale(1); }
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            .stat-card {
+                background: rgba(40, 40, 40, 0.95);
+                padding: 15px;
+                border-radius: 12px;
+                margin-bottom: 15px;
+                transition: all 0.3s ease;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            .stat-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+                border-color: rgba(255, 255, 255, 0.2);
+            }
+            .control-slider {
+                -webkit-appearance: none;
+                width: 100%;
+                height: 6px;
+                border-radius: 3px;
+                background: #495057;
+                outline: none;
+                opacity: 0.7;
+                transition: all 0.3s ease;
+            }
+            .control-slider:hover {
+                opacity: 1;
+            }
+            .control-slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                background: #28a745;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+            .control-slider::-webkit-slider-thumb:hover {
+                transform: scale(1.2);
+            }
+            .action-button {
+                padding: 8px 0;
+                border: none;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                width: 100%;
+                color: white;
+            }
+            .action-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            }
+            .log-entry {
+                animation: fadeIn 0.3s ease;
+                transition: all 0.3s ease;
+            }
+            .log-entry:hover {
+                transform: translateX(5px);
+            }
+        </style>
+        <div style="position: fixed; top: 10px; right: 10px; background: rgba(30, 30, 30, 0.95); padding: 20px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); color: white; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; text-align: center; z-index: 9999; width: 320px; backdrop-filter: blur(10px); animation: slideIn 0.5s ease;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 24px;">🚀</span>
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 600;">Instagram Auto Follow</h2>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button id="minimizeUI" style="background: none; border: none; color: white; cursor: pointer; padding: 5px; transition: all 0.3s ease;">➖</button>
+                    <button id="closeUI" style="background: none; border: none; color: white; cursor: pointer; padding: 5px; transition: all 0.3s ease;">✖️</button>
+                </div>
+            </div>
+
+            <div id="mainContent">
+                <div class="stat-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="text-align: left;">
+                            <div style="font-size: 28px; font-weight: 600; color: #28a745; margin-bottom: 4px; display: flex; align-items: baseline;">
+                                <span id="followCount" style="animation: pulse 1s ease infinite">${count}</span>
+                                <span style="font-size: 14px; color: #6c757d;"> / </span>
+                                <span style="font-size: 14px; color: #6c757d;" id="maxFollowsDisplay">${maxFollows}</span>
+                            </div>
+                            <div style="font-size: 12px; color: #adb5bd;">Accounts Followed</div>
+                        </div>
+                        <div style="position: relative; width: 60px; height: 60px;">
+                            <svg viewBox="0 0 36 36" style="transform: rotate(-90deg)">
+                                <path d="M18 2.0845
+                                    a 15.9155 15.9155 0 0 1 0 31.831
+                                    a 15.9155 15.9155 0 0 1 0 -31.831"
+                                    fill="none"
+                                    stroke="#444"
+                                    stroke-width="2"
+                                    stroke-dasharray="100, 100"/>
+                                <path id="progressPath"
+                                    d="M18 2.0845
+                                    a 15.9155 15.9155 0 0 1 0 31.831
+                                    a 15.9155 15.9155 0 0 1 0 -31.831"
+                                    fill="none"
+                                    stroke="#28a745"
+                                    stroke-width="2"
+                                    stroke-dasharray="0, 100"/>
+                            </svg>
+                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; color: #28a745; font-weight: 600;" id="progressPercent">0%</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; background: rgba(40, 167, 69, 0.1); padding: 8px 12px; border-radius: 8px; margin-top: 10px; border: 1px solid rgba(40, 167, 69, 0.2);">
+                        <div id="statusIcon" style="margin-right: 8px; font-size: 16px;">🔄</div>
+                        <div style="flex-grow: 1; text-align: left;">
+                            <div id="status" style="color: #28a745; font-size: 14px; font-weight: 500;">Status: Idle</div>
+                            <div id="subStatus" style="color: #adb5bd; font-size: 12px; margin-top: 2px;">Ready to start</div>
+                        </div>
                     </div>
                 </div>
 
-                <div id="mainContent">
-                    <div style="background: rgba(40, 40, 40, 0.95); padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <div style="text-align: left;">
-                                <div style="font-size: 24px; font-weight: 600; color: #28a745; margin-bottom: 4px;">
-                                    <span id="followCount">${count}</span>
-                                    <span style="font-size: 14px; color: #6c757d;"> / </span>
-                                    <span style="font-size: 14px; color: #6c757d;" id="maxFollowsDisplay">${maxFollows}</span>
-                                </div>
-                                <div style="font-size: 12px; color: #adb5bd;">Accounts Followed</div>
-                            </div>
-                            <div style="text-align: right;">
-                                <div id="progressCircle" style="width: 50px; height: 50px; position: relative;">
-                                    <svg viewBox="0 0 36 36" style="transform: rotate(-90deg)">
-                                        <path d="M18 2.0845
-                                            a 15.9155 15.9155 0 0 1 0 31.831
-                                            a 15.9155 15.9155 0 0 1 0 -31.831"
-                                            fill="none"
-                                            stroke="#444"
-                                            stroke-width="2"
-                                            stroke-dasharray="100, 100"/>
-                                        <path id="progressPath"
-                                            d="M18 2.0845
-                                            a 15.9155 15.9155 0 0 1 0 31.831
-                                            a 15.9155 15.9155 0 0 1 0 -31.831"
-                                            fill="none"
-                                            stroke="#28a745"
-                                            stroke-width="2"
-                                            stroke-dasharray="0, 100"/>
-                                    </svg>
-                                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; color: #adb5bd;" id="progressPercent">0%</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="display: flex; align-items: center; background: rgba(30, 30, 30, 0.5); padding: 8px 12px; border-radius: 8px;">
-                            <div id="statusIcon" style="margin-right: 8px; font-size: 16px;">🔄</div>
-                            <div style="flex-grow: 1;">
-                                <div id="status" style="color: #ffc107; font-size: 14px; font-weight: 500;">Status: Idle</div>
-                                <div id="subStatus" style="color: #6c757d; font-size: 12px; margin-top: 2px;">Ready to start</div>
-                            </div>
-                        </div>
-                    </div>
-
+                <div class="stat-card">
                     <div style="text-align: left; margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 8px; color: #adb5bd;">⏳ Min Delay: <span id="minDelayValue" style="color: white; font-weight: 500;">${minDelay}</span>s</label>
+                        <label style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: #adb5bd;">⏳ Min Delay</span>
+                            <span id="minDelayValue" style="color: white; font-weight: 500;">${minDelay}s</span>
+                        </label>
                         <input type="range" id="minDelayControl" min="5" max="12" step="1" value="${minDelay}"
-                            style="width: 100%; height: 6px; -webkit-appearance: none; background: #495057; border-radius: 3px; outline: none;">
+                            class="control-slider">
 
-                        <label style="display: block; margin: 15px 0 8px 0; color: #adb5bd;">⏳ Max Delay: <span id="maxDelayValue" style="color: white; font-weight: 500;">${maxDelay}</span>s</label>
+                        <label style="display: flex; justify-content: space-between; margin: 15px 0 8px 0;">
+                            <span style="color: #adb5bd;">⏳ Max Delay</span>
+                            <span id="maxDelayValue" style="color: white; font-weight: 500;">${maxDelay}s</span>
+                        </label>
                         <input type="range" id="maxDelayControl" min="12" max="25" step="1" value="${maxDelay}"
-                            style="width: 100%; height: 6px; -webkit-appearance: none; background: #495057; border-radius: 3px; outline: none;">
+                            class="control-slider">
 
-                        <label style="display: block; margin: 15px 0 8px 0; color: #adb5bd;">🎯 Follows per session: <span id="maxFollowsValue" style="color: white; font-weight: 500;">${maxFollows}</span></label>
+                        <label style="display: flex; justify-content: space-between; margin: 15px 0 8px 0;">
+                            <span style="color: #adb5bd;">🎯 Follows per session</span>
+                            <span id="maxFollowsValue" style="color: white; font-weight: 500;">${maxFollows}</span>
+                        </label>
                         <input type="range" id="maxFollows" min="10" max="500" step="5" value="${maxFollows}"
-                            style="width: 100%; height: 6px; -webkit-appearance: none; background: #495057; border-radius: 3px; outline: none;">
+                            class="control-slider">
 
-                        <label style="display: flex; align-items: center; margin: 15px 0; color: #adb5bd;">
+                        <label style="display: flex; align-items: center; margin: 15px 0; color: #adb5bd; cursor: pointer;">
                             <input type="checkbox" id="randomPauseCheck" ${
                               randomPause ? 'checked' : ''
                             }
                                 style="margin-right: 8px; width: 16px; height: 16px;">
-                            🛌 Enable random pauses
+                            <span>🛌 Enable random pauses</span>
                         </label>
                     </div>
+                </div>
 
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <button id="startFollow" style="flex: 1; background: #28a745; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s;">Start</button>
-                        <button id="stopFollow" style="flex: 1; background: #dc3545; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s;">Stop</button>
-                        <button id="resetFollow" style="flex: 1; background: #ffc107; color: black; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.2s;">Reset</button>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px;">
+                    <button id="startFollow" class="action-button" style="background: #28a745; padding: 8px 0;">
+                        <span>▶️</span>Start
+                    </button>
+                    <button id="stopFollow" class="action-button" style="background: #dc3545; padding: 8px 0;">
+                        <span>⏹️</span>Stop
+                    </button>
+                    <button id="resetFollow" class="action-button" style="background: #ffc107; color: black; padding: 8px 0;">
+                        <span>🔄</span>Reset
+                    </button>
+                </div>
+
+                <div class="stat-card" style="margin-bottom: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="margin: 0; font-size: 16px; color: #adb5bd;">📋 Log History</h3>
+                        <button id="clearLogs" style="background: none; border: none; color: #6c757d; font-size: 12px; cursor: pointer;">Clear</button>
                     </div>
-
-                    <div style="text-align: left;">
-                        <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #adb5bd;">📋 Log History</h3>
-                        <div id="logPanel" style="height: 200px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; font-size: 12px;">
-                        </div>
+                    <div id="logPanel" style="height: 200px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; font-size: 12px; text-align: left;">
                     </div>
                 </div>
             </div>
-        `;
+        </div>
+    `;
     document.body.appendChild(ui);
 
-    // Style range inputs
-    const styleRangeInputs = () => {
-      const rangeInputs = document.querySelectorAll('input[type="range"]');
-      rangeInputs.forEach((input) => {
-        input.style.cssText += `
-                -webkit-appearance: none;
-                width: 100%;
-                height: 6px;
-                background: #495057;
-                border-radius: 3px;
-                outline: none;
-            `;
-      });
+    // Add clear logs functionality
+    document.getElementById('clearLogs').onclick = () => {
+      logHistory = [];
+      localStorage.setItem('log_history', JSON.stringify(logHistory));
+      updateLogUI();
+      addLog('Log history cleared', 'info');
     };
-    styleRangeInputs();
 
-    // Add hover effects to buttons
-    const buttons = document.querySelectorAll('button');
-    buttons.forEach((button) => {
-      button.addEventListener('mouseover', () => {
-        if (button.id === 'startFollow') button.style.background = '#218838';
-        else if (button.id === 'stopFollow') button.style.background = '#c82333';
-        else if (button.id === 'resetFollow') button.style.background = '#e0a800';
-      });
-      button.addEventListener('mouseout', () => {
-        if (button.id === 'startFollow') button.style.background = '#28a745';
-        else if (button.id === 'stopFollow') button.style.background = '#dc3545';
-        else if (button.id === 'resetFollow') button.style.background = '#ffc107';
-      });
-    });
+    // Update log panel UI with animations
+    const originalUpdateLogUI = updateLogUI;
+    updateLogUI = function () {
+      const logPanel = document.getElementById('logPanel');
+      if (!logPanel) return;
 
-    // Initialize log panel
-    updateLogUI();
+      logPanel.innerHTML = logHistory
+        .map((log) => {
+          const typeColors = {
+            info: '#17a2b8',
+            success: '#28a745',
+            warning: '#ffc107',
+            error: '#dc3545',
+          };
+          return `
+                    <div class="log-entry" style="margin-bottom: 8px; padding: 8px; border-radius: 4px; background: rgba(255,255,255,0.1);">
+                        <span style="color: ${typeColors[log.type]}; font-weight: bold;">[${
+            log.timestamp
+          }]</span>
+                        <span style="margin-left: 8px;">${log.message}</span>
+                    </div>
+                `;
+        })
+        .join('');
+    };
 
     document.getElementById('startFollow').onclick = () => {
       if (!running) {

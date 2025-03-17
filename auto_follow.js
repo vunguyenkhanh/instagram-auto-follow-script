@@ -21,8 +21,8 @@
 
   let running = false;
   let count = parseInt(localStorage.getItem('follow_count')) || 0;
-  let minDelay = parseInt(localStorage.getItem('min_delay')) || 10;
-  let maxDelay = parseInt(localStorage.getItem('max_delay')) || 25;
+  let minDelay = parseInt(localStorage.getItem('min_delay')) || 5;
+  let maxDelay = parseInt(localStorage.getItem('max_delay')) || 12;
   let maxFollows = parseInt(localStorage.getItem('max_follows')) || 50;
   let randomPause = localStorage.getItem('random_pause') === 'true';
   let logHistory = JSON.parse(localStorage.getItem('log_history')) || [];
@@ -265,11 +265,11 @@
 
                     <div style="text-align: left; margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 8px; color: #adb5bd;">⏳ Min Delay: <span id="minDelayValue" style="color: white; font-weight: 500;">${minDelay}</span>s</label>
-                        <input type="range" id="minDelayControl" min="10" max="40" step="1" value="${minDelay}"
+                        <input type="range" id="minDelayControl" min="5" max="12" step="1" value="${minDelay}"
                             style="width: 100%; height: 6px; -webkit-appearance: none; background: #495057; border-radius: 3px; outline: none;">
 
                         <label style="display: block; margin: 15px 0 8px 0; color: #adb5bd;">⏳ Max Delay: <span id="maxDelayValue" style="color: white; font-weight: 500;">${maxDelay}</span>s</label>
-                        <input type="range" id="maxDelayControl" min="15" max="60" step="1" value="${maxDelay}"
+                        <input type="range" id="maxDelayControl" min="12" max="25" step="1" value="${maxDelay}"
                             style="width: 100%; height: 6px; -webkit-appearance: none; background: #495057; border-radius: 3px; outline: none;">
 
                         <label style="display: block; margin: 15px 0 8px 0; color: #adb5bd;">🎯 Follows per session: <span id="maxFollowsValue" style="color: white; font-weight: 500;">${maxFollows}</span></label>
@@ -367,7 +367,7 @@
     document.getElementById('minDelayControl').oninput = (e) => {
       minDelay = parseInt(e.target.value);
       if (minDelay >= maxDelay) {
-        maxDelay = minDelay + 5;
+        maxDelay = minDelay + 3;
         document.getElementById('maxDelayControl').value = maxDelay;
         document.getElementById('maxDelayValue').innerText = maxDelay;
       }
@@ -379,7 +379,7 @@
     document.getElementById('maxDelayControl').oninput = (e) => {
       maxDelay = parseInt(e.target.value);
       if (maxDelay <= minDelay) {
-        minDelay = maxDelay - 5;
+        minDelay = maxDelay - 3;
         document.getElementById('minDelayControl').value = minDelay;
         document.getElementById('minDelayValue').innerText = minDelay;
       }
@@ -600,9 +600,9 @@
               console.log(`✅ Followed account #${count}`);
 
               // Random pause after consecutive follows with error handling
-              if (randomPause && consecutiveFollows >= 5 + Math.floor(Math.random() * 5)) {
+              if (randomPause && consecutiveFollows >= 8 + Math.floor(Math.random() * 4)) {
                 try {
-                  const pauseTime = 30 + Math.floor(Math.random() * 31); // Random between 30-60 seconds
+                  const pauseTime = 20 + Math.floor(Math.random() * 21);
                   addLog(`Taking a ${pauseTime} second break to avoid detection`, 'warning');
 
                   await new Promise((resolve) => {
